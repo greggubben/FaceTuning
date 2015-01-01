@@ -7,7 +7,14 @@
  *     Set the Servo to 90 degrees dddd
  */
 #include <Servo.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#include <LCD_Helper.h>
 
+/******************
+ * Set up the Servos
+ ******************/
+ 
 // Test selection pins
 boolean testRange = false;
 
@@ -28,8 +35,33 @@ Servo testServo[14];
 int servoPin = 0;
 
 // LED to show we are running a test
-const int RUNNING_TEST_PIN = 13;  // Position the Servo to 90 degrees
+const int RUNNING_TEST_PIN = 13;
 
+/******************
+ * Set up the LCD
+ ******************/
+ 
+// set the LCD address to 0x27 for a 20 chars and 4 line display
+LiquidCrystal_I2C lcdisplay(0x27,20,4);
+
+// Display settings
+const uint8_t DISPLAY_LENGTH = 9;
+display_t display_positions[DISPLAY_LENGTH] = {
+    { 0, 0,"BL:", 3, 0, 3},
+    {10, 0,"BR:",13, 0, 3},
+    { 0, 1,"EL:", 3, 1, 3},
+    { 6, 1,  ":", 7, 1, 3},
+    {10, 1,"ER:",13, 1, 3},
+    {16, 1,  ":",17, 1, 3},
+    { 0, 2, "M:", 2, 2, 3},
+    { 0, 3,"NU:", 3, 3, 3},
+    {10, 3,"NS:",13, 3, 3},
+};
+
+/******************
+ * Setup()
+ ******************/
+ 
 void setup() {
   // For writing the results
   Serial.begin(9600);
@@ -41,6 +73,13 @@ void setup() {
   detachAllServos();
   clearAllValues();
   servoPin = 0;
+
+  // initialize the lcd 
+  lcdisplay.init();
+
+  // Print the labels
+  displayLabels(&lcdisplay, DISPLAY_LENGTH, display_positions);
+
   printHelp();
 }
 
@@ -163,12 +202,21 @@ void loop() {
 
   // Perform the tests
   if (testRange) {
-    int potVal = analogRead(POT_PIN);   // reads the value of the potentiometer (value between 0 and 1023) 
-    int servoVal = map(potVal, 0, 1023, 0, 179);    // scale it to use it with the servo (value between 0 and 180) 
+    int potVal = analogRead(POT_PIN);  // reads the value of the potentiometer
+    // Pot range is typically between 0 and 1023.
+    // My pot range is only 114 to 900
+    // Servo range is typically between 0 and 180.
+    // The widest range for the servos is 30 to 150 for this installation
+    int servoVal = map(potVal, 114, 900, 30, 150);    // scale pot to servo
+    
     if (servoVal != last_servoVal) {
-      Serial.print("Servo Pos: ");
-      Serial.print(servoVal);
-      Serial.println();
+      // Print the Servo position back to the serial monitor
+      //Serial.print("Servo Pos: ");
+      //Serial.print(servoVal);
+      //Serial.println();
+      // Display a single value as left justified
+      displayValueLeft(&lcdisplay, display_positions, servoPin-MIN_SERVO_PIN, servoVal);
+
       last_servoVal = servoVal;
       testServo[servoPin].write(servoVal);
       if (min_servoVal[servoPin] > servoVal) {
